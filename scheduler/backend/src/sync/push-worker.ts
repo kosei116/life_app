@@ -135,10 +135,19 @@ export async function runPushOnce(): Promise<PushResult> {
     for (const r of response.results ?? []) {
       if (r.googleEventId) returnedIdMap.set(r.id, r.googleEventId);
     }
-    const successEventIds = [
+    // GAS 側で失敗した id を分離。recurring_master のような恒久的失敗は
+    // permanent として retry を打ち切り、それ以外は retry に回す。
+    const errorMap = new Map<string, { reason: string; message?: string }>();
+    for (const e of response.errors ?? []) {
+      errorMap.set(e.id, { reason: e.reason, message: e.message });
+    }
+    const PERMANENT_REASONS = new Set(['recurring_master']);
+
+    const sentEventIds = [
       ...upserts.map((u) => u.id),
       ...deletes.map((d) => d.id),
     ];
+    const successEventIds = sentEventIds.filter((id) => !errorMap.has(id));
     const successQueueIds = successEventIds
       .map((id) => queueByEventId.get(id)?.queueId)
       .filter((x): x is string => Boolean(x));
@@ -149,7 +158,34 @@ export async function runPushOnce(): Promise<PushResult> {
         .where(inArray(syncQueue.id, successQueueIds));
     }
 
+    // GAS エラー分は retry に回す（permanent は打ち切り）
+    for (const [eid, info] of errorMap) {
+      const item = queueByEventId.get(eid);
+      if (!item) continue;
+      const nextRetry = item.retryCount + 1;
+      const isPermanent = PERMANENT_REASONS.has(info.reason);
+      const errMsg = `${info.reason}${info.message ? ': ' + info.message : ''}`.slice(0, 500);
+      if (isPermanent || nextRetry >= MAX_RETRIES) {
+        await db
+          .update(syncQueue)
+          .set({ processedAt: now, retryCount: nextRetry, errorMessage: errMsg })
+          .where(eq(syncQueue.id, item.queueId));
+      } else {
+        const delayMs = Math.min(60_000, 2 ** nextRetry * 1000);
+        await db
+          .update(syncQueue)
+          .set({
+            retryCount: nextRetry,
+            scheduledAt: new Date(Date.now() + delayMs),
+            errorMessage: errMsg,
+          })
+          .where(eq(syncQueue.id, item.queueId));
+      }
+      failed++;
+    }
+
     for (const u of upserts) {
+      if (errorMap.has(u.id)) continue;
       // GAS が返した googleEventId を優先、無ければ送ったもの
       const gid = returnedIdMap.get(u.id) ?? u.googleEventId ?? '';
       await db
@@ -172,6 +208,7 @@ export async function runPushOnce(): Promise<PushResult> {
         });
     }
     for (const d of deletes) {
+      if (errorMap.has(d.id)) continue;
       await db
         .update(syncMapping)
         .set({ tombstone: true, lastPushedAt: now, updatedAt: now })

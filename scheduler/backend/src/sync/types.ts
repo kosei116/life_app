@@ -39,6 +39,8 @@ export interface GasMutationsResponse {
   deleted?: number;
   skipped?: number;
   results?: Array<{ id: string; googleEventId?: string }>;
+  errors?: Array<{ id: string; reason: string; message?: string; googleEventId?: string }>;
+  recurringMasterRejected?: number;
 }
 
 export interface GasFetchedEvent {
