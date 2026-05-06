@@ -1,7 +1,4 @@
 # life_app Caddy 設定（IPアクセス・パス分け）
-# - / および /scheduler/* → scheduler frontend (静的) + /scheduler/api/* → :3030
-# - /study/*    → study frontend (静的) + /study/api/* → :3001
-# - /shift/*    → shift frontend (静的) + /shift/api/* → :3002
 
 :80 {
 	encode gzip zstd
@@ -11,7 +8,9 @@
 	redir @root /scheduler/ 302
 
 	# === scheduler ===
-	handle_path /scheduler/api/* {
+	# /scheduler/api/* は /api/* にしてバックエンドへ
+	handle /scheduler/api/* {
+		uri strip_prefix /scheduler
 		reverse_proxy localhost:3030
 	}
 	handle_path /scheduler/* {
@@ -21,7 +20,8 @@
 	}
 
 	# === study ===
-	handle_path /study/api/* {
+	handle /study/api/* {
+		uri strip_prefix /study
 		reverse_proxy localhost:3001
 	}
 	handle_path /study/* {
@@ -31,7 +31,8 @@
 	}
 
 	# === shift ===
-	handle_path /shift/api/* {
+	handle /shift/api/* {
+		uri strip_prefix /shift
 		reverse_proxy localhost:3002
 	}
 	handle_path /shift/* {
