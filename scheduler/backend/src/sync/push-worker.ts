@@ -128,8 +128,13 @@ export async function runPushOnce(): Promise<PushResult> {
   let succeeded = 0;
   let failed = 0;
   try {
-    await postMutations({ action: 'mutations', upserts, deletes });
+    const response = await postMutations({ action: 'mutations', upserts, deletes });
     const now = new Date();
+    // GAS が返した実際の googleEventId を id ごとに記録
+    const returnedIdMap = new Map<string, string>();
+    for (const r of response.results ?? []) {
+      if (r.googleEventId) returnedIdMap.set(r.id, r.googleEventId);
+    }
     const successEventIds = [
       ...upserts.map((u) => u.id),
       ...deletes.map((d) => d.id),
@@ -145,11 +150,13 @@ export async function runPushOnce(): Promise<PushResult> {
     }
 
     for (const u of upserts) {
+      // GAS が返した googleEventId を優先、無ければ送ったもの
+      const gid = returnedIdMap.get(u.id) ?? u.googleEventId ?? '';
       await db
         .insert(syncMapping)
         .values({
           eventId: u.id,
-          googleEventId: u.googleEventId ?? '',
+          googleEventId: gid,
           googleCalendarId: process.env.GAS_CALENDAR_ID ?? 'primary',
           tombstone: false,
           lastPushedAt: now,
@@ -157,6 +164,7 @@ export async function runPushOnce(): Promise<PushResult> {
         .onConflictDoUpdate({
           target: syncMapping.eventId,
           set: {
+            googleEventId: gid,
             tombstone: false,
             lastPushedAt: now,
             updatedAt: now,
