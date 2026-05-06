@@ -1,0 +1,13 @@
+:80 {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy localhost:3030
+	}
+
+	handle {
+		root * /srv/scheduler/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

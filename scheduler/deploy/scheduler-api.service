@@ -1,0 +1,18 @@
+[Unit]
+Description=Scheduler API (Hono backend)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=scheduler
+WorkingDirectory=/srv/scheduler/backend
+EnvironmentFile=/srv/scheduler/backend/.env
+ExecStart=/home/scheduler/.local/share/fnm/node-versions/v20.20.2/installation/bin/node /srv/scheduler/backend/dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

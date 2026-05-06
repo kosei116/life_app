@@ -1,0 +1,30 @@
+node_modules/
+dist/
+build/
+.turbo/
+.next/
+.cache/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Test
+coverage/
+playwright-report/
+test-results/

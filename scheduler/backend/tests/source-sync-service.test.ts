@@ -1,0 +1,116 @@
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { and, eq, isNull } from 'drizzle-orm';
+import { db } from '../src/db/index.js';
+import { events, syncQueue } from '../src/db/schema.js';
+import {
+  bulkReplace,
+  upsertOne,
+  deleteOne,
+} from '../src/services/source-sync-service.js';
+import { resetDb, seedSourcesIfMissing } from './helpers/db.js';
+import type { ImportEventInput } from '../src/validators/import-event.js';
+
+beforeAll(async () => {
+  await seedSourcesIfMissing();
+});
+
+beforeEach(async () => {
+  await resetDb();
+});
+
+function makeEvent(overrides: Partial<ImportEventInput> = {}): ImportEventInput {
+  return {
+    source: 'study',
+    source_event_id: 'math-1',
+    title: '数学',
+    start: '2026-05-05T01:00:00Z',
+    end: '2026-05-05T02:30:00Z',
+    all_day: false,
+    ...overrides,
+  };
+}
+
+describe('bulkReplace', () => {
+  it('inserts new events and enqueues upsert sync_queue rows', async () => {
+    const result = await bulkReplace('study', [
+      makeEvent({ source_event_id: 'a' }),
+      makeEvent({ source_event_id: 'b', title: 'B' }),
+    ]);
+    expect(result).toEqual({ upserted: 2, deleted: 0 });
+
+    const rows = await db.select().from(events);
+    expect(rows).toHaveLength(2);
+
+    const queue = await db.select().from(syncQueue);
+    expect(queue).toHaveLength(2);
+    expect(queue.every((q) => q.operation === 'upsert')).toBe(true);
+  });
+
+  it('updates existing events on second call (idempotent on source_event_id)', async () => {
+    await bulkReplace('study', [makeEvent({ source_event_id: 'a', title: 'Old' })]);
+    await bulkReplace('study', [makeEvent({ source_event_id: 'a', title: 'New' })]);
+
+    const rows = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.source, 'study'), isNull(events.deletedAt)));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.title).toBe('New');
+  });
+
+  it('logically deletes events missing from new payload', async () => {
+    await bulkReplace('study', [
+      makeEvent({ source_event_id: 'a' }),
+      makeEvent({ source_event_id: 'b' }),
+    ]);
+    const result = await bulkReplace('study', [makeEvent({ source_event_id: 'a' })]);
+
+    expect(result).toEqual({ upserted: 1, deleted: 1 });
+
+    const remaining = await db
+      .select()
+      .from(events)
+      .where(and(eq(events.source, 'study'), isNull(events.deletedAt)));
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.sourceEventId).toBe('a');
+
+    const allRows = await db.select().from(events);
+    expect(allRows).toHaveLength(2);
+    const deletedRow = allRows.find((r) => r.sourceEventId === 'b');
+    expect(deletedRow?.deletedAt).not.toBeNull();
+  });
+
+});
+
+describe('upsertOne', () => {
+  it('inserts and enqueues', async () => {
+    await upsertOne('shift', makeEvent({ source: 'shift', source_event_id: 's-1' }));
+    const rows = await db.select().from(events);
+    expect(rows).toHaveLength(1);
+    const queue = await db.select().from(syncQueue);
+    expect(queue).toHaveLength(1);
+    expect(queue[0]!.operation).toBe('upsert');
+  });
+});
+
+describe('deleteOne', () => {
+  it('logically deletes and enqueues delete', async () => {
+    await upsertOne('study', makeEvent({ source_event_id: 'a' }));
+    const result = await deleteOne('study', 'a');
+    expect(result).toEqual({ deleted: 1 });
+
+    const row = (await db.select().from(events).where(eq(events.sourceEventId, 'a')))[0]!;
+    expect(row.deletedAt).not.toBeNull();
+
+    const queue = await db
+      .select()
+      .from(syncQueue)
+      .where(eq(syncQueue.operation, 'delete'));
+    expect(queue).toHaveLength(1);
+  });
+
+  it('returns 0 when event does not exist', async () => {
+    const result = await deleteOne('study', 'missing');
+    expect(result).toEqual({ deleted: 0 });
+  });
+});

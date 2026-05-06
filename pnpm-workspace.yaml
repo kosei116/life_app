@@ -1,0 +1,8 @@
+packages:
+  - 'shared'
+  - 'scheduler/frontend'
+  - 'scheduler/backend'
+  - 'study/frontend'
+  - 'study/backend'
+  - 'shift/frontend'
+  - 'shift/backend'

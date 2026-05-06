@@ -1,0 +1,25 @@
+{
+  "name": "life-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal life apps monorepo: scheduler hub + study + shift",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "dev:scheduler:backend": "pnpm --filter @scheduler/backend dev",
+    "dev:scheduler:frontend": "pnpm --filter @scheduler/frontend dev",
+    "dev:study:backend": "pnpm --filter @study/backend dev",
+    "dev:study:frontend": "pnpm --filter @study/frontend dev",
+    "dev:shift:backend": "pnpm --filter @shift/backend dev",
+    "dev:shift:frontend": "pnpm --filter @shift/frontend dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

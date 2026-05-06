@@ -1,0 +1,18 @@
+[Unit]
+Description=Study API (Hono backend)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=lifeapp
+WorkingDirectory=/srv/life_app/study/backend
+EnvironmentFile=/srv/life_app/study/backend/.env
+ExecStart=/usr/bin/env node /srv/life_app/study/backend/dist/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

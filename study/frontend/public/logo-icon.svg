@@ -1,0 +1,28 @@
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0ea5e9;stop-opacity:1" />
+      <stop offset="60%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7dd3fc;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Simplified grid for icon -->
+  <rect x="8" y="12" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.9"/>
+  <rect x="22" y="12" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.7"/>
+  <rect x="36" y="12" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.5"/>
+  <rect x="50" y="12" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.3"/>
+  
+  <rect x="8" y="24" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.8"/>
+  <rect x="22" y="24" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.6"/>
+  <rect x="36" y="24" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.4"/>
+  <rect x="50" y="24" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.2"/>
+  
+  <rect x="8" y="36" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.9"/>
+  <rect x="22" y="36" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.7"/>
+  <rect x="36" y="36" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.5"/>
+  <rect x="50" y="36" width="12" height="10" rx="2" fill="url(#iconGradient)" opacity="0.3"/>
+  
+  <!-- Progress bar -->
+  <rect x="8" y="48" width="12" height="2" rx="1" fill="url(#iconGradient)"/>
+</svg>
