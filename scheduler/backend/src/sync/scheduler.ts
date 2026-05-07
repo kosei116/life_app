@@ -1,14 +1,7 @@
 import cron from 'node-cron';
-import { runPushOnce } from './push-worker.js';
-import { runPullOnce } from './pull-worker.js';
+import { runSync } from './run-sync.js';
+import { runPull } from './run-pull.js';
 import { runWindowBatch } from './window-batch.js';
-import { reconcilePush } from './reconcile.js';
-
-async function reconcileAndPush() {
-  const reconciled = await reconcilePush();
-  const r = await runPushOnce();
-  return { reconciled, ...r };
-}
 
 let running = {
   push: false,
@@ -41,9 +34,9 @@ export function startScheduler() {
   }
 
   // every 5 min
-  cron.schedule('*/5 * * * *', () => void safeRun('push', reconcileAndPush));
+  cron.schedule('*/5 * * * *', () => void safeRun('push', runSync));
   // every 30 min
-  cron.schedule('*/30 * * * *', () => void safeRun('pull', runPullOnce));
+  cron.schedule('*/30 * * * *', () => void safeRun('pull', runPull));
   // daily at 04:00 JST = 19:00 UTC
   cron.schedule('0 19 * * *', () => void safeRun('window', runWindowBatch));
 

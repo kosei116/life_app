@@ -15,6 +15,13 @@
       "when": 1777696121602,
       "tag": "0001_remarkable_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778121410639,
+      "tag": "0002_sync_redesign",
+      "breakpoints": true
     }
   ]
 }

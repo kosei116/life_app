@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../src/db/index.js';
-import { events, syncQueue } from '../src/db/schema.js';
+import { events } from '../src/db/schema.js';
 import {
   bulkReplace,
   upsertOne,
@@ -31,7 +31,7 @@ function makeEvent(overrides: Partial<ImportEventInput> = {}): ImportEventInput 
 }
 
 describe('bulkReplace', () => {
-  it('inserts new events and enqueues upsert sync_queue rows', async () => {
+  it('inserts new events', async () => {
     const result = await bulkReplace('study', [
       makeEvent({ source_event_id: 'a' }),
       makeEvent({ source_event_id: 'b', title: 'B' }),
@@ -40,10 +40,6 @@ describe('bulkReplace', () => {
 
     const rows = await db.select().from(events);
     expect(rows).toHaveLength(2);
-
-    const queue = await db.select().from(syncQueue);
-    expect(queue).toHaveLength(2);
-    expect(queue.every((q) => q.operation === 'upsert')).toBe(true);
   });
 
   it('updates existing events on second call (idempotent on source_event_id)', async () => {
@@ -79,34 +75,24 @@ describe('bulkReplace', () => {
     const deletedRow = allRows.find((r) => r.sourceEventId === 'b');
     expect(deletedRow?.deletedAt).not.toBeNull();
   });
-
 });
 
 describe('upsertOne', () => {
-  it('inserts and enqueues', async () => {
+  it('inserts a new event', async () => {
     await upsertOne('shift', makeEvent({ source: 'shift', source_event_id: 's-1' }));
     const rows = await db.select().from(events);
     expect(rows).toHaveLength(1);
-    const queue = await db.select().from(syncQueue);
-    expect(queue).toHaveLength(1);
-    expect(queue[0]!.operation).toBe('upsert');
   });
 });
 
 describe('deleteOne', () => {
-  it('logically deletes and enqueues delete', async () => {
+  it('logically deletes the event', async () => {
     await upsertOne('study', makeEvent({ source_event_id: 'a' }));
     const result = await deleteOne('study', 'a');
     expect(result).toEqual({ deleted: 1 });
 
     const row = (await db.select().from(events).where(eq(events.sourceEventId, 'a')))[0]!;
     expect(row.deletedAt).not.toBeNull();
-
-    const queue = await db
-      .select()
-      .from(syncQueue)
-      .where(eq(syncQueue.operation, 'delete'));
-    expect(queue).toHaveLength(1);
   });
 
   it('returns 0 when event does not exist', async () => {

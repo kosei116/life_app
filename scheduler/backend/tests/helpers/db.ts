@@ -2,7 +2,7 @@ import { db } from '../../src/db/index.js';
 import { sql } from 'drizzle-orm';
 
 export async function resetDb() {
-  await db.execute(sql`TRUNCATE TABLE sync_queue, sync_mapping, event_overrides, events RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE TABLE sync_mapping, event_overrides, events RESTART IDENTITY CASCADE`);
 }
 
 export async function seedSourcesIfMissing() {

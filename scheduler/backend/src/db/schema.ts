@@ -61,27 +61,6 @@ export const events = pgTable(
   })
 );
 
-export const syncQueue = pgTable(
-  'sync_queue',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    eventId: uuid('event_id')
-      .notNull()
-      .references(() => events.id, { onDelete: 'cascade' }),
-    operation: text('operation', { enum: ['upsert', 'delete'] }).notNull(),
-    retryCount: integer('retry_count').notNull().default(0),
-    scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull().defaultNow(),
-    processedAt: timestamp('processed_at', { withTimezone: true }),
-    errorMessage: text('error_message'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => ({
-    unprocessedIdx: index('idx_sync_queue_unprocessed')
-      .on(t.scheduledAt)
-      .where(sql`${t.processedAt} IS NULL`),
-  })
-);
-
 export const syncMapping = pgTable('sync_mapping', {
   eventId: uuid('event_id')
     .primaryKey()
@@ -90,6 +69,10 @@ export const syncMapping = pgTable('sync_mapping', {
   googleCalendarId: text('google_calendar_id').notNull(),
   tombstone: boolean('tombstone').notNull().default(false),
   syncToken: text('sync_token'),
+  // 最後に push したイベント内容の SHA-1 ハッシュ。
+  // runSync は events から計算した現在の hash と比較して、
+  // 変わってないイベントは GAS に送らない。
+  contentHash: text('content_hash'),
   lastPushedAt: timestamp('last_pushed_at', { withTimezone: true }),
   lastPulledAt: timestamp('last_pulled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -112,6 +95,5 @@ export const eventOverrides = pgTable('event_overrides', {
 export type EventRow = typeof events.$inferSelect;
 export type EventInsert = typeof events.$inferInsert;
 export type SourceRow = typeof sources.$inferSelect;
-export type SyncQueueRow = typeof syncQueue.$inferSelect;
 export type SyncMappingRow = typeof syncMapping.$inferSelect;
 export type EventOverrideRow = typeof eventOverrides.$inferSelect;

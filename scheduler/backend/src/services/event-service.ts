@@ -1,6 +1,6 @@
 import { and, eq, gte, isNull, lt, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { events, eventOverrides, syncQueue } from '../db/schema.js';
+import { events, eventOverrides } from '../db/schema.js';
 import type { EventRow } from '../db/schema.js';
 import type {
   CreateEventInput,
@@ -206,9 +206,6 @@ export async function createManualEvent(input: CreateEventInput): Promise<EventD
       recurrenceIndex: groupId ? idx : null,
     }));
     const inserted = await tx.insert(events).values(rows).returning();
-    await tx
-      .insert(syncQueue)
-      .values(inserted.map((r) => ({ eventId: r.id, operation: 'upsert' as const })));
     return inserted.map((row) => toDto(row));
   });
 }
@@ -266,12 +263,6 @@ export async function updateEvent(
       .where(cond)
       .returning({ id: events.id });
 
-    if (updated.length > 0) {
-      await tx
-        .insert(syncQueue)
-        .values(updated.map((r) => ({ eventId: r.id, operation: 'upsert' as const })));
-    }
-
     return { updated: updated.length, ids: updated.map((r) => r.id) };
   });
 }
@@ -299,11 +290,6 @@ export async function deleteEvent(
       .where(cond)
       .returning({ id: events.id });
 
-    if (deleted.length > 0) {
-      await tx
-        .insert(syncQueue)
-        .values(deleted.map((r) => ({ eventId: r.id, operation: 'delete' as const })));
-    }
     return { deleted: deleted.length };
   });
 }

@@ -1,9 +1,12 @@
+/**
+ * 外部 source（study/shift など）から scheduler に取り込まれる events の CRUD。
+ * sync_queue は廃止済み。Google Calendar への反映は runSync() が events テーブルから
+ * 差分を計算して行うので、ここでは events のみを更新する。
+ */
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { events, syncQueue } from '../db/schema.js';
+import { events } from '../db/schema.js';
 import type { ImportEventInput } from '../validators/import-event.js';
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function toEventRow(sourceId: string, ev: ImportEventInput) {
   return {
@@ -22,20 +25,6 @@ function toEventRow(sourceId: string, ev: ImportEventInput) {
   };
 }
 
-async function enqueueSync(
-  tx: Tx,
-  eventIds: string[],
-  operation: 'upsert' | 'delete'
-) {
-  if (eventIds.length === 0) return;
-  await tx
-    .insert(syncQueue)
-    .values(eventIds.map((id) => ({ eventId: id, operation })));
-}
-
-/**
- * 個別 upsert。sync_queue に upsert を積む。
- */
 export async function upsertOne(sourceId: string, ev: ImportEventInput) {
   return db.transaction(async (tx) => {
     const row = toEventRow(sourceId, ev);
@@ -61,21 +50,13 @@ export async function upsertOne(sourceId: string, ev: ImportEventInput) {
         },
       })
       .returning({ id: events.id });
-
-    if (inserted.length > 0) {
-      await enqueueSync(tx, inserted.map((r) => r.id), 'upsert');
-    }
     return inserted[0] ?? null;
   });
 }
 
-/**
- * 全件 upsert。payload に無い source 管理イベントは論理削除し sync_queue に delete を積む。
- */
 export async function bulkReplace(sourceId: string, eventsInput: ImportEventInput[]) {
   return db.transaction(async (tx) => {
-    const upsertedIds: string[] = [];
-
+    let upserted = 0;
     for (const ev of eventsInput) {
       const row = toEventRow(sourceId, ev);
       const result = await tx
@@ -100,19 +81,14 @@ export async function bulkReplace(sourceId: string, eventsInput: ImportEventInpu
           },
         })
         .returning({ id: events.id });
-      if (result[0]) upsertedIds.push(result[0].id);
+      if (result[0]) upserted++;
     }
 
     const incomingIds = new Set(eventsInput.map((e) => e.source_event_id));
     const existing = await tx
       .select({ id: events.id, sourceEventId: events.sourceEventId })
       .from(events)
-      .where(
-        and(
-          eq(events.source, sourceId),
-          isNull(events.deletedAt)
-        )
-      );
+      .where(and(eq(events.source, sourceId), isNull(events.deletedAt)));
 
     const toDelete = existing
       .filter((r) => r.sourceEventId !== null && !incomingIds.has(r.sourceEventId))
@@ -123,23 +99,12 @@ export async function bulkReplace(sourceId: string, eventsInput: ImportEventInpu
         .update(events)
         .set({ deletedAt: new Date(), updatedAt: new Date() })
         .where(inArray(events.id, toDelete));
-      await enqueueSync(tx, toDelete, 'delete');
     }
 
-    if (upsertedIds.length > 0) {
-      await enqueueSync(tx, upsertedIds, 'upsert');
-    }
-
-    return {
-      upserted: upsertedIds.length,
-      deleted: toDelete.length,
-    };
+    return { upserted, deleted: toDelete.length };
   });
 }
 
-/**
- * 個別削除。論理削除 + sync_queue に delete を積む。
- */
 export async function deleteOne(sourceId: string, sourceEventId: string) {
   return db.transaction(async (tx) => {
     const found = await tx
@@ -153,15 +118,12 @@ export async function deleteOne(sourceId: string, sourceEventId: string) {
         )
       )
       .limit(1);
-
     if (found.length === 0) return { deleted: 0 };
-
     const id = found[0]!.id;
     await tx
       .update(events)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(events.id, id));
-    await enqueueSync(tx, [id], 'delete');
     return { deleted: 1 };
   });
 }

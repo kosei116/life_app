@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../src/db/index.js';
-import { events, eventOverrides, syncQueue } from '../src/db/schema.js';
+import { events, eventOverrides } from '../src/db/schema.js';
 import {
   createManualEvent,
   updateEvent,
@@ -31,9 +31,6 @@ describe('createManualEvent', () => {
     expect(created).toHaveLength(1);
     expect(created[0]!.source).toBe('manual');
     expect(created[0]!.recurrence_group_id).toBeNull();
-    const queue = await db.select().from(syncQueue);
-    expect(queue).toHaveLength(1);
-    expect(queue[0]!.operation).toBe('upsert');
   });
 
   it('expands weekly recurrence with count', async () => {
@@ -53,9 +50,6 @@ describe('createManualEvent', () => {
 
     const days = created.map((e) => new Date(e.start_at).toISOString().slice(0, 10));
     expect(days).toEqual(['2026-05-05', '2026-05-12', '2026-05-19', '2026-05-26']);
-
-    const queue = await db.select().from(syncQueue);
-    expect(queue).toHaveLength(4);
   });
 
   it('expands daily recurrence with count', async () => {
@@ -201,11 +195,6 @@ describe('deleteEvent', () => {
     expect(result).toEqual({ deleted: 4 });
     const remaining = await db.select().from(events).where(isNull(events.deletedAt));
     expect(remaining).toHaveLength(0);
-    const queue = await db
-      .select()
-      .from(syncQueue)
-      .where(eq(syncQueue.operation, 'delete'));
-    expect(queue).toHaveLength(4);
   });
 
   it('deletes this_and_future for recurrence', async () => {
@@ -218,11 +207,6 @@ describe('deleteEvent', () => {
     });
     const result = await deleteEvent(created[1]!.id, 'this_and_future');
     expect(result).toEqual({ deleted: 3 });
-    const queue = await db
-      .select()
-      .from(syncQueue)
-      .where(eq(syncQueue.operation, 'delete'));
-    expect(queue).toHaveLength(3);
   });
 });
 
