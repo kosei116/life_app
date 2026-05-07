@@ -33,7 +33,7 @@ export async function upsertOne(sourceId: string, ev: ImportEventInput) {
       .values(row)
       .onConflictDoUpdate({
         target: [events.source, events.sourceEventId],
-        targetWhere: sql`${events.sourceEventId} IS NOT NULL AND ${events.deletedAt} IS NULL`,
+        targetWhere: sql`${events.sourceEventId} IS NOT NULL`,
         set: {
           title: row.title,
           startAt: row.startAt,
@@ -64,7 +64,7 @@ export async function bulkReplace(sourceId: string, eventsInput: ImportEventInpu
         .values(row)
         .onConflictDoUpdate({
           target: [events.source, events.sourceEventId],
-          targetWhere: sql`${events.sourceEventId} IS NOT NULL AND ${events.deletedAt} IS NULL`,
+          targetWhere: sql`${events.sourceEventId} IS NOT NULL`,
           set: {
             title: row.title,
             startAt: row.startAt,

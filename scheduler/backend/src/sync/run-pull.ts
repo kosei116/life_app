@@ -165,7 +165,7 @@ async function upsertGoogleEvent(
       })
       .onConflictDoNothing({
         target: [events.source, events.sourceEventId],
-        where: sql`${events.sourceEventId} IS NOT NULL AND ${events.deletedAt} IS NULL`,
+        where: sql`${events.sourceEventId} IS NOT NULL`,
       })
       .returning({ id: events.id });
     if (inserted.length === 0) return 'skipped';

@@ -100,3 +100,27 @@ describe('deleteOne', () => {
     expect(result).toEqual({ deleted: 0 });
   });
 });
+
+describe('re-import after delete', () => {
+  it('resurrects (does not duplicate) when bulkReplace re-adds a deleted source_event_id', async () => {
+    await upsertOne('study', makeEvent({ source_event_id: 'r-1', title: '1' }));
+    await deleteOne('study', 'r-1');
+    await bulkReplace('study', [makeEvent({ source_event_id: 'r-1', title: '2' })]);
+
+    const all = await db.select().from(events).where(eq(events.sourceEventId, 'r-1'));
+    expect(all).toHaveLength(1);
+    expect(all[0]!.deletedAt).toBeNull();
+    expect(all[0]!.title).toBe('2');
+  });
+
+  it('resurrects when upsertOne re-adds a deleted source_event_id', async () => {
+    await upsertOne('study', makeEvent({ source_event_id: 'r-2', title: '1' }));
+    await deleteOne('study', 'r-2');
+    await upsertOne('study', makeEvent({ source_event_id: 'r-2', title: '2' }));
+
+    const all = await db.select().from(events).where(eq(events.sourceEventId, 'r-2'));
+    expect(all).toHaveLength(1);
+    expect(all[0]!.deletedAt).toBeNull();
+    expect(all[0]!.title).toBe('2');
+  });
+});

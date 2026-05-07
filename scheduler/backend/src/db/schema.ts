@@ -54,7 +54,7 @@ export const events = pgTable(
       .where(sql`${t.deletedAt} IS NULL`),
     sourceEventIdUniq: uniqueIndex('idx_events_source_event_id')
       .on(t.source, t.sourceEventId)
-      .where(sql`${t.sourceEventId} IS NOT NULL AND ${t.deletedAt} IS NULL`),
+      .where(sql`${t.sourceEventId} IS NOT NULL`),
     recurrenceGroupIdx: index('idx_events_recurrence_group')
       .on(t.recurrenceGroupId, t.recurrenceIndex)
       .where(sql`${t.recurrenceGroupId} IS NOT NULL`),
