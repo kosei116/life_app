@@ -8,7 +8,7 @@ import {
 } from '../subjects/hooks.js';
 import { useCreateTask } from '../tasks/hooks.js';
 import { playCelebrate, triggerRipple, PALETTE_GREEN } from '../../lib/animations.js';
-import { formatDueDate, formatDateLocal } from '../../lib/stats.js';
+import { formatDueDate, formatDateLocal, taskTypeLabel } from '../../lib/stats.js';
 
 const SUBJECT_COLORS = [
   '#FFEBEE', '#FFF3E0', '#FFFDE7', '#F1F8E9', '#E8F5E9',
@@ -217,7 +217,12 @@ export function SubjectModal({
                           borderRadius: 6, marginBottom: 6, fontSize: 13,
                         }}
                       >
-                        <strong>{detailText || '（詳細なし）'}</strong>
+                        <strong>{taskTypeLabel(t.type)}</strong>
+                        {detailText && (
+                          <span style={{ marginLeft: 8, color: '#596275' }}>
+                            {detailText}
+                          </span>
+                        )}
                         <span style={{ float: 'right', color: '#596275' }}>
                           {formatDueDate(t.dueDate)}
                         </span>
