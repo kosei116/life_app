@@ -158,6 +158,7 @@ export function TimetableView() {
         return (
           <TaskPopup
             subject={sub}
+            subjects={subjects}
             tasks={tasks}
             onClose={() => setTaskPopupSubjectId(null)}
           />

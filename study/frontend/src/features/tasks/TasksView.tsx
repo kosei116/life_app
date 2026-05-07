@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { Task } from '../../lib/types.js';
 import { useAppStore } from '../../lib/store.js';
 import { useSubjects } from '../subjects/hooks.js';
 import { useTasks, useUpdateTask, useDeleteTask } from './hooks.js';
@@ -7,6 +8,7 @@ import { useClassDays } from '../class-days/hooks.js';
 import { computeSubjectStats, formatDueDate, classifyTaskDueDate, taskTypeLabel } from '../../lib/stats.js';
 import { useAdjustLecturesAttended } from '../subjects/hooks.js';
 import { playCelebrate, triggerRipple, PALETTE_GREEN, PALETTE_BLUE } from '../../lib/animations.js';
+import { TaskEditModal } from './TaskEditModal.js';
 
 export function TasksView() {
   const semesterId = useAppStore((s) => s.currentSemesterId);
@@ -17,6 +19,7 @@ export function TasksView() {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const adjustLectures = useAdjustLecturesAttended();
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const subjectMap = useMemo(() => new Map(subjects.map((s) => [s.id, s])), [subjects]);
   const active = tasks.filter((t) => !t.completed);
@@ -133,6 +136,12 @@ export function TasksView() {
                     </span>
                   </div>
                 </div>
+                <button
+                  className="task-edit-btn"
+                  onClick={() => setEditingTask(t)}
+                >
+                  編集
+                </button>
               </div>
             );
           })}
@@ -165,6 +174,12 @@ export function TasksView() {
               </div>
               <button
                 className="task-edit-btn"
+                onClick={() => setEditingTask(t)}
+              >
+                編集
+              </button>
+              <button
+                className="task-edit-btn"
                 style={{ borderColor: '#E53E3E', color: '#E53E3E' }}
                 onClick={() => deleteTask.mutate(t.id)}
               >
@@ -174,6 +189,13 @@ export function TasksView() {
             );
           })}
         </>
+      )}
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          subjects={subjects}
+          onClose={() => setEditingTask(null)}
+        />
       )}
     </div>
   );

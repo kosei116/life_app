@@ -1,17 +1,21 @@
+import { useState } from 'react';
 import type { Subject, Task } from '../../lib/types.js';
 import { useUpdateTask, useDeleteTask } from './hooks.js';
 import { formatDueDate, classifyTaskDueDate, taskTypeLabel } from '../../lib/stats.js';
 import { playCelebrate, PALETTE_BLUE } from '../../lib/animations.js';
+import { TaskEditModal } from './TaskEditModal.js';
 
 type Props = {
   subject: Subject;
+  subjects: Subject[];
   tasks: Task[];
   onClose: () => void;
 };
 
-export function TaskPopup({ subject, tasks, onClose }: Props) {
+export function TaskPopup({ subject, subjects, tasks, onClose }: Props) {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const subjectTasks = tasks
     .filter((t) => t.subjectId === subject.id && !t.completed)
@@ -76,6 +80,12 @@ export function TaskPopup({ subject, tasks, onClose }: Props) {
                   </div>
                   <button
                     className="task-edit-btn"
+                    onClick={() => setEditingTask(t)}
+                  >
+                    編集
+                  </button>
+                  <button
+                    className="task-edit-btn"
                     style={{ borderColor: '#E53E3E', color: '#E53E3E' }}
                     onClick={() => {
                       if (confirm('このタスクを削除しますか？')) deleteTask.mutate(t.id);
@@ -93,6 +103,13 @@ export function TaskPopup({ subject, tasks, onClose }: Props) {
           <button className="btn" onClick={onClose}>Close</button>
         </div>
       </div>
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          subjects={subjects}
+          onClose={() => setEditingTask(null)}
+        />
+      )}
     </div>
   );
 }
