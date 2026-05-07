@@ -132,6 +132,7 @@ export function TimeGridColumn({
     <div
       ref={colRef}
       data-day={formatJst(day, 'yyyy-MM-dd')}
+      data-time-grid="1"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

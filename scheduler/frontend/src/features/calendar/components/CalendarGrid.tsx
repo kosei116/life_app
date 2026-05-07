@@ -124,19 +124,44 @@ export function CalendarGrid() {
     const el = document.elementFromPoint(x, y);
     const target = el?.closest('[data-day]') as HTMLElement | null;
     const dayStr = target?.dataset.day;
-    if (!dayStr) {
+    if (!target || !dayStr) {
       cancelMove();
       return;
     }
-    if (formatJst(ev.start_at, 'yyyy-MM-dd') === dayStr) {
-      cancelMove();
-      return;
+
+    const isTimeGrid = target.hasAttribute('data-time-grid');
+    let newStart: string;
+    let newEnd: string;
+
+    if (isTimeGrid && !ev.all_day) {
+      const rect = target.getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (y - rect.top) / rect.height));
+      const minutesIntoDay = Math.round((ratio * 24 * 60) / 15) * 15;
+      const dayStartLocal = new Date(`${dayStr}T00:00:00+09:00`);
+      const startDate = new Date(dayStartLocal.getTime() + minutesIntoDay * 60_000);
+      const durationMs =
+        new Date(ev.end_at).getTime() - new Date(ev.start_at).getTime();
+      const endDate = new Date(startDate.getTime() + durationMs);
+      if (startDate.toISOString() === ev.start_at) {
+        cancelMove();
+        return;
+      }
+      newStart = startDate.toISOString();
+      newEnd = endDate.toISOString();
+    } else {
+      if (formatJst(ev.start_at, 'yyyy-MM-dd') === dayStr) {
+        cancelMove();
+        return;
+      }
+      const [yy, mm, dd] = dayStr.split('-').map(Number);
+      const day = new Date(yy!, mm! - 1, dd!);
+      const shifted = shiftEventToDay(ev, day);
+      newStart = shifted.start;
+      newEnd = shifted.end;
     }
-    const [yy, mm, dd] = dayStr.split('-').map(Number);
-    const day = new Date(yy!, mm! - 1, dd!);
-    const { start, end } = shiftEventToDay(ev, day);
+
     try {
-      await update.mutateAsync({ id: ev.id, start, end });
+      await update.mutateAsync({ id: ev.id, start: newStart, end: newEnd });
     } finally {
       cancelMove();
     }
