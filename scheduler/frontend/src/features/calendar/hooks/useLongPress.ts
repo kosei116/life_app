@@ -20,7 +20,7 @@ export function useLongPress({
   onDragMove,
   onDragEnd,
   thresholdMs = 500,
-  moveTolerancePx = 8,
+  moveTolerancePx = 16,
 }: Options) {
   const timerRef = useRef<number | null>(null);
   const startRef = useRef<Pointer | null>(null);
