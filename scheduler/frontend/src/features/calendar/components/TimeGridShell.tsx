@@ -42,6 +42,8 @@ export function TimeGridShell({ header, children, columnCount, allDayRow }: Prop
             background: 'var(--c-surface)',
             borderBottom: '1px solid var(--c-border)',
             flexShrink: 0,
+            maxHeight: 96,
+            overflowY: 'auto',
           }}
         >
           <div
