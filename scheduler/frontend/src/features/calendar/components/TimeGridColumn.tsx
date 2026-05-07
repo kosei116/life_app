@@ -11,7 +11,8 @@ interface Props {
   moveTarget: Event | null;
   onAdd: (start: Date, end: Date) => void;
   onTapEvent: (e: Event) => void;
-  onLongPressEvent: (e: Event) => void;
+  onLongPressEvent: (e: Event, x: number, y: number) => void;
+  onDragMoveEvent: (e: Event, x: number, y: number) => void;
   onDropTo: (day: Date) => void;
   onDropEventAt: (e: Event, x: number, y: number) => void;
 }
@@ -34,6 +35,7 @@ export function TimeGridColumn({
   onAdd,
   onTapEvent,
   onLongPressEvent,
+  onDragMoveEvent,
   onDropTo,
   onDropEventAt,
 }: Props) {
@@ -187,6 +189,7 @@ export function TimeGridColumn({
           laneCount={laneCount}
           onTap={onTapEvent}
           onLongPress={onLongPressEvent}
+          onDragMove={onDragMoveEvent}
           onDropAt={onDropEventAt}
           dimmed={moveTarget !== null && moveTarget.id !== event.id}
           highlighted={moveTarget?.id === event.id}

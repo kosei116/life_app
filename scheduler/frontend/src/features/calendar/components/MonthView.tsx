@@ -18,7 +18,8 @@ interface DayCellProps {
   moveTarget: Event | null;
   onAdd: (day: Date) => void;
   onTapEvent: (e: Event) => void;
-  onLongPressEvent: (e: Event) => void;
+  onLongPressEvent: (e: Event, x: number, y: number) => void;
+  onDragMoveEvent: (e: Event, x: number, y: number) => void;
   onDropTo: (day: Date) => void;
   onDropEventAt: (e: Event, x: number, y: number) => void;
 }
@@ -31,6 +32,7 @@ function DayCell({
   onAdd,
   onTapEvent,
   onLongPressEvent,
+  onDragMoveEvent,
   onDropTo,
   onDropEventAt,
 }: DayCellProps) {
@@ -67,6 +69,7 @@ function DayCell({
             event={ev}
             onTap={onTapEvent}
             onLongPress={onLongPressEvent}
+            onDragMove={onDragMoveEvent}
             onDropAt={onDropEventAt}
             dimmed={moveTarget !== null && moveTarget.id !== ev.id}
             highlighted={moveTarget?.id === ev.id}
@@ -84,7 +87,8 @@ interface Props {
   moveTarget: Event | null;
   onAdd: (day: Date) => void;
   onTapEvent: (e: Event) => void;
-  onLongPressEvent: (e: Event) => void;
+  onLongPressEvent: (e: Event, x: number, y: number) => void;
+  onDragMoveEvent: (e: Event, x: number, y: number) => void;
   onDropTo: (day: Date) => void;
   onDropEventAt: (e: Event, x: number, y: number) => void;
 }
@@ -96,6 +100,7 @@ export function MonthView({
   onAdd,
   onTapEvent,
   onLongPressEvent,
+  onDragMoveEvent,
   onDropTo,
   onDropEventAt,
 }: Props) {
@@ -159,6 +164,7 @@ export function MonthView({
             onAdd={onAdd}
             onTapEvent={onTapEvent}
             onLongPressEvent={onLongPressEvent}
+            onDragMoveEvent={onDragMoveEvent}
             onDropTo={onDropTo}
             onDropEventAt={onDropEventAt}
           />

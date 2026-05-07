@@ -11,7 +11,8 @@ interface Props {
   laneIndex: number;
   laneCount: number;
   onTap: (e: Event) => void;
-  onLongPress: (e: Event) => void;
+  onLongPress: (e: Event, x: number, y: number) => void;
+  onDragMove?: (e: Event, x: number, y: number) => void;
   onDropAt?: (e: Event, x: number, y: number) => void;
   dimmed?: boolean;
   highlighted?: boolean;
@@ -24,13 +25,15 @@ export function TimeGridEvent({
   laneCount,
   onTap,
   onLongPress,
+  onDragMove,
   onDropAt,
   dimmed,
   highlighted,
 }: Props) {
   const handlers = useLongPress({
-    onLongPress: () => onLongPress(event),
+    onLongPress: (x, y) => onLongPress(event, x, y),
     onClick: () => onTap(event),
+    onDragMove: onDragMove ? (x, y) => onDragMove(event, x, y) : undefined,
     onDragEnd: onDropAt ? (x, y) => onDropAt(event, x, y) : undefined,
   });
 

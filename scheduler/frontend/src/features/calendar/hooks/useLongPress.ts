@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 interface Options {
-  onLongPress: () => void;
+  onLongPress: (x: number, y: number) => void;
   onClick?: () => void;
   onDragMove?: (x: number, y: number) => void;
   onDragEnd?: (x: number, y: number) => void;
@@ -41,6 +41,8 @@ export function useLongPress({
       startRef.current = { x: e.clientX, y: e.clientY };
       const target = e.currentTarget as Element;
       const pointerId = e.pointerId;
+      const startX = e.clientX;
+      const startY = e.clientY;
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
         firedRef.current = true;
@@ -48,7 +50,7 @@ export function useLongPress({
           draggingRef.current = true;
           target.setPointerCapture?.(pointerId);
         }
-        onLongPress();
+        onLongPress(startX, startY);
       }, thresholdMs);
     },
     [onLongPress, thresholdMs, onDragEnd, onDragMove],

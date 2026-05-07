@@ -48,10 +48,18 @@ function stepAnchor(view: ViewKind, anchor: Date, dir: 1 | -1): Date {
   return addDays(anchor, dir);
 }
 
+interface Ghost {
+  title: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
 export function CalendarGrid() {
   const [anchor, setAnchor] = useState(() => new Date());
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
   const [sourcesPanelOpen, setSourcesPanelOpen] = useState(false);
+  const [ghost, setGhost] = useState<Ghost | null>(null);
   const view = useViewStore((s) => s.view);
   const setView = useViewStore((s) => s.setView);
   const moveTarget = useMoveStore((s) => s.target);
@@ -72,7 +80,10 @@ export function CalendarGrid() {
   );
 
   useEffect(() => {
-    if (!moveTarget) return;
+    if (!moveTarget) {
+      setGhost(null);
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') cancelMove();
     };
@@ -93,12 +104,22 @@ export function CalendarGrid() {
 
   const closeModal = () => setModal({ kind: 'none' });
 
-  const handleStartMove = (ev: Event) => {
+  const handleStartMove = (ev: Event, x: number, y: number) => {
     if (ev.source !== 'manual' && ev.source !== 'google') {
       toast.error('インポートされた予定は移動できません（読み取り専用）。');
       return;
     }
     startMove(ev);
+    setGhost({
+      title: ev.title,
+      color: ev.override?.color_override ?? ev.color ?? '#4f46e5',
+      x,
+      y,
+    });
+  };
+
+  const handleDragMove = (_ev: Event, x: number, y: number) => {
+    setGhost((g) => (g ? { ...g, x, y } : g));
   };
 
   const handleDropTo = async (day: Date) => {
@@ -116,6 +137,7 @@ export function CalendarGrid() {
   };
 
   const handleDropEventAt = async (ev: Event, x: number, y: number) => {
+    setGhost(null);
     if (ev.source !== 'manual' && ev.source !== 'google') {
       toast.error('インポートされた予定は移動できません（読み取り専用）。');
       cancelMove();
@@ -189,6 +211,7 @@ export function CalendarGrid() {
     moveTarget,
     onTapEvent: (ev: Event) => setModal({ kind: 'detail', event: ev }),
     onLongPressEvent: handleStartMove,
+    onDragMoveEvent: handleDragMove,
     onDropTo: handleDropTo,
     onDropEventAt: handleDropEventAt,
   };
@@ -280,6 +303,33 @@ export function CalendarGrid() {
         event={modal.kind === 'detail' ? modal.event : null}
         onEdit={(ev) => setModal({ kind: 'edit', event: ev })}
       />
+
+      {ghost && (
+        <div
+          style={{
+            position: 'fixed',
+            left: ghost.x,
+            top: ghost.y,
+            transform: 'translate(-50%, -50%)',
+            background: ghost.color,
+            color: '#fff',
+            padding: '4px 10px',
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+            maxWidth: 240,
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.25)',
+            opacity: 0.92,
+            pointerEvents: 'none',
+            zIndex: 9999,
+          }}
+        >
+          {ghost.title}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,16 +5,20 @@ import { formatJst } from '../../../lib/date-utils';
 interface Props {
   event: Event;
   onTap: (event: Event) => void;
-  onLongPress: (event: Event) => void;
+  onLongPress: (event: Event, x: number, y: number) => void;
+  onDragMove?: (event: Event, x: number, y: number) => void;
   onDropAt?: (event: Event, x: number, y: number) => void;
   dimmed?: boolean;
   highlighted?: boolean;
 }
 
-export function EventBlock({ event, onTap, onLongPress, onDropAt, dimmed, highlighted }: Props) {
+export function EventBlock({
+  event, onTap, onLongPress, onDragMove, onDropAt, dimmed, highlighted,
+}: Props) {
   const handlers = useLongPress({
-    onLongPress: () => onLongPress(event),
+    onLongPress: (x, y) => onLongPress(event, x, y),
     onClick: () => onTap(event),
+    onDragMove: onDragMove ? (x, y) => onDragMove(event, x, y) : undefined,
     onDragEnd: onDropAt ? (x, y) => onDropAt(event, x, y) : undefined,
   });
 

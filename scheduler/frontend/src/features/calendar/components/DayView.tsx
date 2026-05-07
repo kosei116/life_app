@@ -11,7 +11,8 @@ interface Props {
   moveTarget: Event | null;
   onAdd: (start: Date, end: Date) => void;
   onTapEvent: (e: Event) => void;
-  onLongPressEvent: (e: Event) => void;
+  onLongPressEvent: (e: Event, x: number, y: number) => void;
+  onDragMoveEvent: (e: Event, x: number, y: number) => void;
   onDropTo: (day: Date) => void;
   onDropEventAt: (e: Event, x: number, y: number) => void;
   onAddAllDay: (day: Date) => void;
@@ -24,6 +25,7 @@ export function DayView({
   onAdd,
   onTapEvent,
   onLongPressEvent,
+  onDragMoveEvent,
   onDropTo,
   onDropEventAt,
   onAddAllDay,
@@ -75,6 +77,7 @@ export function DayView({
         onAdd={onAdd}
         onTapEvent={onTapEvent}
         onLongPressEvent={onLongPressEvent}
+        onDragMoveEvent={onDragMoveEvent}
         onDropTo={onDropTo}
         onDropEventAt={onDropEventAt}
       />
