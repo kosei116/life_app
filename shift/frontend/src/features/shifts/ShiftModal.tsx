@@ -155,10 +155,16 @@ export function ShiftModal({ initial, workplaces, onClose }: Props) {
                       <div
                         key={i}
                         className="time-history-item"
-                        onClick={() => {
-                          setStart(s.start);
-                          setEnd(s.end);
-                          setWorkplaceId(s.workplaceId);
+                        onClick={async () => {
+                          const sDate = buildLocal(date, s.start);
+                          const eDate = buildLocal(date, s.end);
+                          if (eDate <= sDate) eDate.setDate(eDate.getDate() + 1);
+                          await create.mutateAsync({
+                            workplaceId: s.workplaceId,
+                            startAt: sDate.toISOString(),
+                            endAt: eDate.toISOString(),
+                          });
+                          onClose();
                         }}
                       >
                         <div className="time-history-workplace">{wp?.name ?? '?'}</div>
