@@ -116,10 +116,11 @@ function collectActions(
     const mapping = mappingByEventId.get(ev.id) ?? null;
     const newHash = rowContentHash(ev);
 
-    // source='google' の場合、pull 直後は hash 一致しているはず。
-    // ユーザがアプリ側で編集すれば hash が変わるので push 対象になる。
-    // mapping が存在しない google イベントは pull 経由で来てないので skip。
-    if (ev.source === 'google' && !mapping) continue;
+    // source='google' は pull 専用。Calendar には push しない。
+    // 過去に B モード（hash 駆動で push）を試したが、subscribed/iCal UID イベントを
+    // Calendar.Events.get で解決できず INSERT して重複を作るリスクがあるため撤回。
+    // ユーザが Google イベントを編集したい場合は manual に変換する想定。
+    if (ev.source === 'google') continue;
 
     // tombstone は「sync 対象から外した」印（手動削除 or permanent error）。
     // hash も一緒に保存してあるので、events 側で内容が変われば再度 push する余地は残す。
