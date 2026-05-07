@@ -141,7 +141,11 @@ export async function runPushOnce(): Promise<PushResult> {
     for (const e of response.errors ?? []) {
       errorMap.set(e.id, { reason: e.reason, message: e.message });
     }
-    const PERMANENT_REASONS = new Set(['recurring_master']);
+    const PERMANENT_REASONS = new Set([
+      'recurring_master',
+      'patch_unsupported_id',
+      'no_google_id',
+    ]);
 
     const sentEventIds = [
       ...upserts.map((u) => u.id),

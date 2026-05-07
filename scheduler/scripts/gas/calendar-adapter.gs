@@ -54,6 +54,8 @@ function doGet(e) {
     if (action === 'events') return fetchEvents();
     if (action === 'clear') return clearTaggedEvents();
     if (action === 'clearbytitles') return clearByTitles(e.parameter.titles || '');
+    if (action === 'dedup_dryrun') return dedupDryrun(e.parameter.from || '', e.parameter.to || '');
+    if (action === 'dedup') return dedupRange(e.parameter.from || '', e.parameter.to || '');
     return jsonResponse({ success: true, message: 'scheduler Calendar adapter is running.' });
   } catch (err) {
     console.error('doGet failed:', err);
@@ -87,19 +89,26 @@ function processMutations(payload) {
     const body = buildEventBody(title, fullDesc, location, start, end, allDay, reminder);
 
     const googleEventId = stripIdSuffix(item.googleEventId);
-    let existing = null;
-    if (googleEventId) {
-      try { existing = Calendar.Events.get(calId, googleEventId); } catch (_) { existing = null; }
-    }
+    // Advanced API → CalendarApp の順で既存イベントを解決する。
+    // 旧 pull は CalendarApp.getEvents() で iCal UID を保存していたため、
+    // Advanced API では取れないケースがある。
+    const resolved = resolveExisting(calId, googleEventId);
 
-    if (existing) {
-      if (Array.isArray(existing.recurrence) && existing.recurrence.length > 0) {
+    if (resolved.event) {
+      if (Array.isArray(resolved.event.recurrence) && resolved.event.recurrence.length > 0) {
         recurringMasterRejected += 1;
         errors.push({ id: id, reason: 'recurring_master', googleEventId: googleEventId });
         return;
       }
+      if (resolved.via !== 'advanced') {
+        // CalendarApp 経由 = Advanced API の patch は通らない。
+        // 編集は当面サポート外として permanent error。
+        skipped += 1;
+        errors.push({ id: id, reason: 'patch_unsupported_id', googleEventId: googleEventId });
+        return;
+      }
       try {
-        const patched = Calendar.Events.patch(body, calId, existing.id);
+        const patched = Calendar.Events.patch(body, calId, resolved.event.id);
         results.push({ id: id, googleEventId: patched.id });
         updated += 1;
       } catch (err) {
@@ -121,17 +130,31 @@ function processMutations(payload) {
   deletes.forEach(function (item) {
     const id = (item.id || '').trim();
     const googleEventId = stripIdSuffix(item.googleEventId);
-    if (!googleEventId) { skipped += 1; return; }
-    let existing = null;
-    try { existing = Calendar.Events.get(calId, googleEventId); } catch (_) { existing = null; }
-    if (!existing) { skipped += 1; return; }
-    if (Array.isArray(existing.recurrence) && existing.recurrence.length > 0) {
+    if (!googleEventId) {
+      // delete 対象に google id が無い = mapping 未確立。retry しても無意味なので
+      // permanent error として返し、queue 側で打ち切らせる。
+      errors.push({ id: id, reason: 'no_google_id' });
+      return;
+    }
+    const resolved = resolveExisting(calId, googleEventId);
+    if (!resolved.event) {
+      // Calendar 側に存在しない（既に削除済み or 別カレンダー由来で参照不能）。
+      // 本人は「消えてる」状態なので success 扱い、queue は閉じる。
+      deleted += 1;
+      return;
+    }
+    if (Array.isArray(resolved.event.recurrence) && resolved.event.recurrence.length > 0) {
       recurringMasterRejected += 1;
       errors.push({ id: id, reason: 'recurring_master', googleEventId: googleEventId });
       return;
     }
     try {
-      Calendar.Events.remove(calId, existing.id);
+      if (resolved.via === 'advanced') {
+        Calendar.Events.remove(calId, resolved.event.id);
+      } else {
+        // CalendarApp 経由で取れた = iCal UID。CalendarApp の deleteEvent を使う。
+        resolved.calendarAppEvent.deleteEvent();
+      }
       deleted += 1;
     } catch (err) {
       skipped += 1;
@@ -297,10 +320,208 @@ function clearByTitles(titlesParam) {
   });
 }
 
+/**
+ * Dry-run: count duplicates in [from, to) without deleting.
+ * `from`/`to` are ISO dates (YYYY-MM-DD) in script timezone, end-exclusive.
+ * Groups app-tagged events by schedule_mgr_id and reports how many extras exist.
+ */
+function dedupDryrun(fromParam, toParam) {
+  const range = parseRange(fromParam, toParam);
+  if (!range) return jsonResponse({ success: false, message: 'Invalid from/to. Use YYYY-MM-DD.' });
+
+  const calId = CALENDAR_ID;
+  let listed = 0, tagged = 0, untagged = 0, uniqueIds = 0, extras = 0, recurringMaster = 0;
+  const groups = {};
+  const samples = [];
+
+  let pageToken = null;
+  do {
+    const resp = Calendar.Events.list(calId, {
+      timeMin: range.start.toISOString(),
+      timeMax: range.end.toISOString(),
+      singleEvents: true,
+      maxResults: 2500,
+      pageToken: pageToken || undefined,
+      showDeleted: false,
+    });
+    const items = resp.items || [];
+    listed += items.length;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const desc = item.description || '';
+      const m = desc.match(DESCRIPTION_REGEX);
+      if (!m || !m[1]) { untagged += 1; continue; }
+      tagged += 1;
+      const sid = m[1];
+      if (!groups[sid]) groups[sid] = [];
+      groups[sid].push({
+        googleEventId: item.id,
+        title: item.summary || '',
+        updated: item.updated || '',
+        start: (item.start && (item.start.dateTime || item.start.date)) || '',
+      });
+    }
+    pageToken = resp.nextPageToken || null;
+  } while (pageToken);
+
+  const dupGroups = [];
+  Object.keys(groups).forEach(function (sid) {
+    const arr = groups[sid];
+    uniqueIds += 1;
+    if (arr.length > 1) {
+      extras += arr.length - 1;
+      if (samples.length < 10) {
+        samples.push({ scheduleMgrId: sid, count: arr.length, title: arr[0].title, start: arr[0].start });
+      }
+      dupGroups.push(arr.length);
+    }
+  });
+
+  return jsonResponse({
+    success: true,
+    range: { start: toIso(range.start), end: toIso(range.end) },
+    listed: listed,
+    tagged: tagged,
+    untagged: untagged,
+    uniqueScheduleMgrIds: uniqueIds,
+    duplicateGroups: dupGroups.length,
+    extrasToDelete: extras,
+    recurringMaster: recurringMaster,
+    samples: samples,
+  });
+}
+
+/**
+ * Delete duplicate app-tagged events in [from, to). Keeps the most recently
+ * updated one per schedule_mgr_id; deletes the rest. Time-budget-safe.
+ */
+function dedupRange(fromParam, toParam) {
+  const range = parseRange(fromParam, toParam);
+  if (!range) return jsonResponse({ success: false, message: 'Invalid from/to. Use YYYY-MM-DD.' });
+
+  const calId = CALENDAR_ID;
+  const MAX_RUNTIME_MS = 4.5 * 60 * 1000;
+  const startedAt = Date.now();
+
+  const groups = {};
+  let listed = 0, tagged = 0;
+  let pageToken = null;
+  do {
+    const resp = Calendar.Events.list(calId, {
+      timeMin: range.start.toISOString(),
+      timeMax: range.end.toISOString(),
+      singleEvents: true,
+      maxResults: 2500,
+      pageToken: pageToken || undefined,
+      showDeleted: false,
+    });
+    const items = resp.items || [];
+    listed += items.length;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const desc = item.description || '';
+      const m = desc.match(DESCRIPTION_REGEX);
+      if (!m || !m[1]) continue;
+      tagged += 1;
+      const sid = m[1];
+      if (!groups[sid]) groups[sid] = [];
+      groups[sid].push({ id: item.id, updated: item.updated || '' });
+    }
+    pageToken = resp.nextPageToken || null;
+  } while (pageToken);
+
+  let deleted = 0, failed = 0, remaining = 0, timedOut = false;
+  const errorSamples = [];
+  const sids = Object.keys(groups);
+  for (let i = 0; i < sids.length; i++) {
+    const arr = groups[sids[i]];
+    if (arr.length <= 1) continue;
+    arr.sort(function (a, b) { return (b.updated || '').localeCompare(a.updated || ''); });
+    for (let j = 1; j < arr.length; j++) {
+      if (Date.now() - startedAt > MAX_RUNTIME_MS) { remaining += 1; timedOut = true; continue; }
+      try {
+        Calendar.Events.remove(calId, arr[j].id);
+        deleted += 1;
+        Utilities.sleep(120);
+      } catch (err) {
+        failed += 1;
+        if (errorSamples.length < 5) {
+          errorSamples.push({ scheduleMgrId: sids[i], eventId: arr[j].id, message: errMessage(err) });
+        }
+        const msg = errMessage(err);
+        if (msg.indexOf('Rate Limit') >= 0 || msg.indexOf('quota') >= 0 || msg.indexOf('Quota') >= 0) {
+          Utilities.sleep(2000);
+        }
+      }
+    }
+  }
+
+  return jsonResponse({
+    success: true,
+    range: { start: toIso(range.start), end: toIso(range.end) },
+    listed: listed,
+    tagged: tagged,
+    deleted: deleted,
+    failed: failed,
+    remaining: remaining,
+    timedOut: timedOut,
+    elapsedMs: Date.now() - startedAt,
+    errorSamples: errorSamples,
+  });
+}
+
+function parseRange(fromParam, toParam) {
+  if (!fromParam || !toParam) return null;
+  const start = parseLocalDate(fromParam);
+  const end = parseLocalDate(toParam);
+  if (!start || !end || end <= start) return null;
+  return { start: start, end: end };
+}
+
+function parseLocalDate(s) {
+  const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0, 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function stripIdSuffix(rawId) {
   if (!rawId) return '';
   const s = String(rawId).trim();
   return s.indexOf('@') > 0 ? s.split('@')[0] : s;
+}
+
+/**
+ * googleEventId に対応する Calendar イベントを Advanced API → CalendarApp の順で解決する。
+ * - Advanced API は Google ネイティブ ID（例: gub85igteq...）専用。
+ * - CalendarApp は iCal UID（例: 873E5E9E-... / xxx@google.com）も扱える。
+ * 戻り値:
+ *   { event: <Advanced APIイベントオブジェクト or null>,
+ *     via: 'advanced' | 'calendarApp' | null,
+ *     calendarAppEvent: <CalendarApp event or null> }
+ */
+function resolveExisting(calId, googleEventId) {
+  if (!googleEventId) return { event: null, via: null, calendarAppEvent: null };
+  // 1. Advanced API
+  try {
+    const ev = Calendar.Events.get(calId, googleEventId);
+    if (ev) return { event: ev, via: 'advanced', calendarAppEvent: null };
+  } catch (_) { /* fall through */ }
+  // 2. CalendarApp fallback (iCal UID 等)
+  try {
+    const cal = CalendarApp.getCalendarById(calId);
+    if (!cal) return { event: null, via: null, calendarAppEvent: null };
+    const cev = cal.getEventById(googleEventId);
+    if (!cev) return { event: null, via: null, calendarAppEvent: null };
+    // CalendarApp 由来でも recurrence 判定や patch 用に最低限のスタブを返す
+    const stub = {
+      id: cev.getId(),
+      recurrence: cev.isRecurringEvent() ? ['RRULE:STUB'] : null,
+    };
+    return { event: stub, via: 'calendarApp', calendarAppEvent: cev };
+  } catch (_) {
+    return { event: null, via: null, calendarAppEvent: null };
+  }
 }
 
 function sanitize(text) {
