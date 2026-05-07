@@ -131,6 +131,7 @@ export function EventFormModal({ open, onClose, mode }: Props) {
     );
     for (const ev of sorted) {
       if (!ev.title.trim()) continue;
+      if (ev.source !== 'manual' && ev.source !== 'google') continue;
       const cat = findCategoryByName(ev.category);
       const catId = cat?.id ?? DEFAULT_CATEGORY.id;
       const k = `${ev.title}|${catId}`;
@@ -141,7 +142,6 @@ export function EventFormModal({ open, onClose, mode }: Props) {
         categoryId: catId,
         color: cat?.color ?? ev.color ?? DEFAULT_CATEGORY.color,
       });
-      if (list.length >= 10) break;
     }
     return list;
   }, [pastEvents, mode.kind]);
@@ -255,6 +255,12 @@ export function EventFormModal({ open, onClose, mode }: Props) {
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: 6,
+                maxHeight: 132,
+                overflowY: 'auto',
+                padding: 6,
+                border: '1px solid var(--c-border)',
+                borderRadius: 8,
+                background: 'var(--c-surface-muted)',
               }}
             >
               {suggestions.map((s, i) => (
