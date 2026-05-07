@@ -304,6 +304,11 @@ body {
   box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
 }
 
+.number-circle.due-date-soon {
+  background: linear-gradient(135deg, #FBC02D, #F9A825);
+  box-shadow: 0 2px 8px rgba(251, 192, 45, 0.3);
+}
+
 .number-circle.due-date-week {
   background: linear-gradient(135deg, #1E88E5, #1565C0);
   box-shadow: 0 2px 8px rgba(30, 136, 229, 0.3);
@@ -1321,6 +1326,12 @@ body {
 
 .due-date-tomorrow {
   background: linear-gradient(135deg, #FF9800, #F57C00);
+  color: white;
+  font-weight: 500;
+}
+
+.due-date-soon {
+  background: linear-gradient(135deg, #FBC02D, #F9A825);
   color: white;
   font-weight: 500;
 }

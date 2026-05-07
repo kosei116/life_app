@@ -33,7 +33,8 @@ export function App() {
     const totalAttended = subjectStats.reduce((sum, s) => sum + s.subject.lecturesAttended, 0);
     const overall = totalRequired > 0 ? Math.round((totalAttended / totalRequired) * 100) : 0;
     const week = maxElapsedWeekFromClassDays(classDays);
-    const openTasks = tasks.filter((t) => !t.completed).length;
+    const deficitCount = subjectStats.filter((s) => s.deficit > 0).length;
+    const openTasks = tasks.filter((t) => !t.completed).length + deficitCount;
     return { overall, week, openTasks };
   }, [semester, subjects, slots, classDays, tasks]);
 

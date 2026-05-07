@@ -1,6 +1,6 @@
 import type { Subject, Task } from '../../lib/types.js';
 import { useUpdateTask, useDeleteTask } from './hooks.js';
-import { formatDueDate, classifyTaskDueDate } from '../../lib/stats.js';
+import { formatDueDate, classifyTaskDueDate, taskTypeLabel } from '../../lib/stats.js';
 import { playCelebrate, PALETTE_BLUE } from '../../lib/animations.js';
 
 type Props = {
@@ -40,6 +40,7 @@ export function TaskPopup({ subject, tasks, onClose }: Props) {
             subjectTasks.map((t) => {
               const isPlaceholder = !t.title || t.title === subject.name;
               const detailText = isPlaceholder ? (t.detail ?? '') : t.title;
+              const headTitle = taskTypeLabel(t.type);
               return (
                 <div
                   key={t.id}
@@ -62,8 +63,9 @@ export function TaskPopup({ subject, tasks, onClose }: Props) {
                     }}
                   />
                   <div className="task-content">
-                    <div className="task-title">{detailText || '（詳細なし）'}</div>
+                    <div className="task-title">{headTitle}</div>
                     <div className="task-details">
+                      {detailText && <span style={{ marginRight: 8 }}>{detailText}</span>}
                       <span
                         className={`due-date due-date-${classifyTaskDueDate(t.dueDate)}`}
                         style={{ fontWeight: 600 }}

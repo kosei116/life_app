@@ -4,7 +4,7 @@ import { useSubjects } from '../subjects/hooks.js';
 import { useTasks, useUpdateTask, useDeleteTask } from './hooks.js';
 import { useTimetable } from '../timetable/hooks.js';
 import { useClassDays } from '../class-days/hooks.js';
-import { computeSubjectStats, formatDueDate, classifyTaskDueDate } from '../../lib/stats.js';
+import { computeSubjectStats, formatDueDate, classifyTaskDueDate, taskTypeLabel } from '../../lib/stats.js';
 import { useAdjustLecturesAttended } from '../subjects/hooks.js';
 import { playCelebrate, triggerRipple, PALETTE_GREEN, PALETTE_BLUE } from '../../lib/animations.js';
 
@@ -93,13 +93,10 @@ export function TasksView() {
           )}
           {active.map((t) => {
             const sub = t.subjectId ? subjectMap.get(t.subjectId) : null;
-            const headTitle = sub?.name ?? (t.title && t.title !== '(無題)' ? t.title : 'Unknown');
-            const isPlaceholder = !t.title || t.title === '(無題)';
-            const detailText = isPlaceholder
-              ? (t.detail ?? '')
-              : sub
-                ? t.title // subject 名と別の意味のタイトルがある場合は本文として表示
-                : (t.detail ?? '');
+            const headTitle = taskTypeLabel(t.type);
+            const isPlaceholder = !t.title || t.title === '(無題)' || t.title === sub?.name;
+            const bodyText = isPlaceholder ? (t.detail ?? '') : t.title;
+            const detailText = sub?.name ? (bodyText ? `${sub.name} / ${bodyText}` : sub.name) : bodyText;
             return (
               <div
                 key={t.id}
@@ -150,11 +147,10 @@ export function TasksView() {
           </h3>
           {completed.map((t) => {
             const sub = t.subjectId ? subjectMap.get(t.subjectId) : null;
-            const headTitle = sub?.name ?? (t.title && t.title !== '(無題)' ? t.title : 'Unknown');
-            const isPlaceholder = !t.title || t.title === '(無題)';
-            const detailText = isPlaceholder
-              ? (t.detail ?? '')
-              : sub ? t.title : (t.detail ?? '');
+            const headTitle = taskTypeLabel(t.type);
+            const isPlaceholder = !t.title || t.title === '(無題)' || t.title === sub?.name;
+            const bodyText = isPlaceholder ? (t.detail ?? '') : t.title;
+            const detailText = sub?.name ? (bodyText ? `${sub.name} / ${bodyText}` : sub.name) : bodyText;
             return (
             <div key={t.id} className="task-item" style={{ opacity: 0.5 }}>
               <input

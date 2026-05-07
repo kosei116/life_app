@@ -1,4 +1,13 @@
-import type { Subject, TimetableSlot, ClassDay } from './types.js';
+import type { Subject, TimetableSlot, ClassDay, TaskType } from './types.js';
+
+export function taskTypeLabel(type: TaskType): string {
+  switch (type) {
+    case 'assignment': return '課題';
+    case 'report': return 'レポート';
+    case 'test': return 'テスト';
+    case 'other': return 'その他';
+  }
+}
 
 // 旧 combi の getCurrentWeekForSubject:
 // その科目が時間割に最初に登場する曜日について、今日以前の授業日数を返す（最低1）。
@@ -26,28 +35,22 @@ function pastClassDaysOnJsWeekday(
   return count;
 }
 
-// 旧 combi: 最初の slot のみ参照
-function findFirstSlotForSubject(
-  subjectId: string,
-  slots: TimetableSlot[]
-): TimetableSlot | undefined {
-  // periodNumber → day の順で探したいが、ここでは period_id を持っていないため
-  // dayOfWeek の昇順で最小のものを返す（旧 combi は period→day 順 = 同じ science のためOK）
-  return slots
-    .filter((sl) => sl.subjectId === subjectId)
-    .sort((a, b) => a.dayOfWeek - b.dayOfWeek)[0];
-}
-
 export function getCurrentWeekForSubject(
   subjectId: string,
   slots: TimetableSlot[],
   classDays: ClassDay[],
   todayISO: string = new Date().toISOString().slice(0, 10)
 ): number {
-  const slot = findFirstSlotForSubject(subjectId, slots);
-  if (!slot) return 1;
-  const jsWd = myDayToJsDay(slot.dayOfWeek);
-  return Math.max(1, pastClassDaysOnJsWeekday(classDays, jsWd, todayISO));
+  // 科目の全スロット（複数曜日に開講される場合）の過去授業日数を合計する
+  const subjectSlots = slots.filter((sl) => sl.subjectId === subjectId);
+  if (subjectSlots.length === 0) return 0;
+  // 同一曜日に複数スロットあっても授業日カウントは1日1回なので、曜日を重複排除
+  const jsWeekdays = new Set(subjectSlots.map((sl) => myDayToJsDay(sl.dayOfWeek)));
+  let total = 0;
+  for (const wd of jsWeekdays) {
+    total += pastClassDaysOnJsWeekday(classDays, wd, todayISO);
+  }
+  return total;
 }
 
 export type SubjectStat = {
@@ -127,7 +130,9 @@ export function formatDueDate(dueDate: string): string {
   return `あと${diff}日`;
 }
 
-export function classifyTaskDueDate(dueDate: string): 'overdue' | 'today' | 'soon' | 'normal' {
+export function classifyTaskDueDate(
+  dueDate: string,
+): 'overdue' | 'today' | 'soon' | 'week' | 'future' {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const due = new Date(dueDate);
@@ -136,5 +141,6 @@ export function classifyTaskDueDate(dueDate: string): 'overdue' | 'today' | 'soo
   if (diff < 0) return 'overdue';
   if (diff === 0) return 'today';
   if (diff <= 3) return 'soon';
-  return 'normal';
+  if (diff <= 7) return 'week';
+  return 'future';
 }
