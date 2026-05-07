@@ -13,6 +13,8 @@ interface Props {
   onTapEvent: (e: Event) => void;
   onLongPressEvent: (e: Event) => void;
   onDropTo: (day: Date) => void;
+  onDropEventAt: (e: Event, x: number, y: number) => void;
+  onAddAllDay: (day: Date) => void;
 }
 
 export function WeekView({
@@ -23,6 +25,8 @@ export function WeekView({
   onTapEvent,
   onLongPressEvent,
   onDropTo,
+  onDropEventAt,
+  onAddAllDay,
 }: Props) {
   const days = useMemo(() => getWeekDays(anchor), [anchor]);
 
@@ -39,7 +43,6 @@ export function WeekView({
     return { timedByDay, allDayByDay };
   }, [events]);
 
-  const hasAnyAllDay = Array.from(allDayByDay.values()).some((arr) => arr.length > 0);
 
   const header = days.map((day) => {
     const isToday = formatJst(day, 'yyyy-MM-dd') === formatJst(new Date(), 'yyyy-MM-dd');
@@ -62,18 +65,17 @@ export function WeekView({
     );
   });
 
-  const allDayRow = hasAnyAllDay
-    ? days.map((day) => {
-        const key = formatJst(day, 'yyyy-MM-dd');
-        return (
-          <AllDayCell
-            key={day.toISOString()}
-            events={allDayByDay.get(key) ?? []}
-            onTapEvent={onTapEvent}
-          />
-        );
-      })
-    : undefined;
+  const allDayRow = days.map((day) => {
+    const key = formatJst(day, 'yyyy-MM-dd');
+    return (
+      <AllDayCell
+        key={day.toISOString()}
+        events={allDayByDay.get(key) ?? []}
+        onTapEvent={onTapEvent}
+        onLongPressEmpty={() => onAddAllDay(day)}
+      />
+    );
+  });
 
   return (
     <TimeGridShell header={header} columnCount={days.length} allDayRow={allDayRow}>
@@ -90,6 +92,7 @@ export function WeekView({
             onTapEvent={onTapEvent}
             onLongPressEvent={onLongPressEvent}
             onDropTo={onDropTo}
+            onDropEventAt={onDropEventAt}
           />
         );
       })}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Event } from '@life-app/types';
 import { Modal } from '../../../components/Modal/Modal';
 import { DateTimePicker } from '../../../components/DateTimePicker/DateTimePicker';
@@ -9,6 +9,7 @@ import {
   type CreateEventPayload,
   type UpdateEventPayload,
 } from '../hooks/useEventMutations';
+import { useCalendarEvents } from '../hooks/useCalendarEvents';
 import {
   CATEGORIES,
   DEFAULT_CATEGORY,
@@ -16,7 +17,7 @@ import {
 } from '../../categories/categories';
 
 type Mode =
-  | { kind: 'create'; defaultStart: Date; defaultEnd?: Date }
+  | { kind: 'create'; defaultStart: Date; defaultEnd?: Date; defaultAllDay?: boolean }
   | { kind: 'edit'; event: Event };
 
 interface Props {
@@ -67,7 +68,7 @@ function buildInitialState(mode: Mode): FormState {
       title: '',
       startLocal: dateToDatetimeLocal(start),
       endLocal: dateToDatetimeLocal(end),
-      allDay: false,
+      allDay: mode.defaultAllDay ?? false,
       location: '',
       description: '',
       categoryId: DEFAULT_CATEGORY.id,
@@ -114,6 +115,36 @@ export function EventFormModal({ open, onClose, mode }: Props) {
   const submitting = create.isPending || update.isPending;
   const category =
     CATEGORIES.find((c) => c.id === state.categoryId) ?? DEFAULT_CATEGORY;
+
+  const historyRange = useMemo(() => {
+    const to = new Date();
+    const from = new Date(to.getTime() - 90 * 86_400_000);
+    return { from, to };
+  }, []);
+  const { data: pastEvents = [] } = useCalendarEvents(historyRange);
+  const suggestions = useMemo(() => {
+    if (mode.kind !== 'create') return [];
+    const seen = new Set<string>();
+    const list: { title: string; categoryId: string; color: string }[] = [];
+    const sorted = [...pastEvents].sort((a, b) =>
+      b.start_at.localeCompare(a.start_at),
+    );
+    for (const ev of sorted) {
+      if (!ev.title.trim()) continue;
+      const cat = findCategoryByName(ev.category);
+      const catId = cat?.id ?? DEFAULT_CATEGORY.id;
+      const k = `${ev.title}|${catId}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      list.push({
+        title: ev.title,
+        categoryId: catId,
+        color: cat?.color ?? ev.color ?? DEFAULT_CATEGORY.color,
+      });
+      if (list.length >= 10) break;
+    }
+    return list;
+  }, [pastEvents, mode.kind]);
 
   const rangeError = (() => {
     if (!state.startLocal || !state.endLocal) return null;
@@ -217,6 +248,60 @@ export function EventFormModal({ open, onClose, mode }: Props) {
       }
     >
       <div className="form-stack">
+        {mode.kind === 'create' && suggestions.length > 0 && (
+          <Field label="履歴から選択">
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 6,
+              }}
+            >
+              {suggestions.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() =>
+                    setState((prev) => ({
+                      ...prev,
+                      title: s.title,
+                      categoryId: s.categoryId,
+                    }))
+                  }
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: '1px solid var(--c-border)',
+                    background: 'var(--c-surface)',
+                    color: 'var(--c-text)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    maxWidth: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                  title={s.title}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      background: s.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {s.title}
+                </button>
+              ))}
+            </div>
+          </Field>
+        )}
+
         <Field label="タイトル">
           <input
             className="title-input"

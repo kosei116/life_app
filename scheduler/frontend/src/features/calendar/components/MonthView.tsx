@@ -20,6 +20,7 @@ interface DayCellProps {
   onTapEvent: (e: Event) => void;
   onLongPressEvent: (e: Event) => void;
   onDropTo: (day: Date) => void;
+  onDropEventAt: (e: Event, x: number, y: number) => void;
 }
 
 function DayCell({
@@ -31,6 +32,7 @@ function DayCell({
   onTapEvent,
   onLongPressEvent,
   onDropTo,
+  onDropEventAt,
 }: DayCellProps) {
   const handlers = useLongPress({ onLongPress: () => onAdd(day) });
   const inMoveMode = moveTarget !== null;
@@ -49,7 +51,12 @@ function DayCell({
     .join(' ');
 
   return (
-    <div {...(inMoveMode ? {} : handlers)} onClick={handleClick} className={cellClass}>
+    <div
+      {...(inMoveMode ? {} : handlers)}
+      onClick={handleClick}
+      className={cellClass}
+      data-day={formatJst(day, 'yyyy-MM-dd')}
+    >
       <div className={`cell-date${isToday ? ' is-today' : ''}`}>
         {toJstDate(day).getDate()}
       </div>
@@ -60,6 +67,7 @@ function DayCell({
             event={ev}
             onTap={onTapEvent}
             onLongPress={onLongPressEvent}
+            onDropAt={onDropEventAt}
             dimmed={moveTarget !== null && moveTarget.id !== ev.id}
             highlighted={moveTarget?.id === ev.id}
           />
@@ -78,6 +86,7 @@ interface Props {
   onTapEvent: (e: Event) => void;
   onLongPressEvent: (e: Event) => void;
   onDropTo: (day: Date) => void;
+  onDropEventAt: (e: Event, x: number, y: number) => void;
 }
 
 export function MonthView({
@@ -88,6 +97,7 @@ export function MonthView({
   onTapEvent,
   onLongPressEvent,
   onDropTo,
+  onDropEventAt,
 }: Props) {
   const days = useMemo(() => getMonthGridDays(anchor), [anchor]);
   const rowCount = days.length / 7;
@@ -150,6 +160,7 @@ export function MonthView({
             onTapEvent={onTapEvent}
             onLongPressEvent={onLongPressEvent}
             onDropTo={onDropTo}
+            onDropEventAt={onDropEventAt}
           />
         ))}
       </div>

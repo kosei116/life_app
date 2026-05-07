@@ -1,13 +1,20 @@
 import type { Event } from '@life-app/types';
+import { useLongPress } from '../hooks/useLongPress';
 
 interface Props {
   events: Event[];
   onTapEvent: (e: Event) => void;
+  onLongPressEmpty?: () => void;
 }
 
-export function AllDayCell({ events, onTapEvent }: Props) {
+export function AllDayCell({ events, onTapEvent, onLongPressEmpty }: Props) {
+  const handlers = useLongPress({
+    onLongPress: () => onLongPressEmpty?.(),
+  });
+
   return (
     <div
+      {...(onLongPressEmpty ? handlers : {})}
       style={{
         borderLeft: '1px solid var(--c-border)',
         padding: 4,
@@ -15,6 +22,10 @@ export function AllDayCell({ events, onTapEvent }: Props) {
         flexDirection: 'column',
         gap: 2,
         minHeight: 24,
+        minWidth: 0,
+        overflow: 'hidden',
+        cursor: onLongPressEmpty ? 'pointer' : undefined,
+        touchAction: 'none',
       }}
     >
       {events.map((ev) => {
@@ -22,6 +33,7 @@ export function AllDayCell({ events, onTapEvent }: Props) {
         return (
           <button
             key={ev.id}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
               onTapEvent(ev);
@@ -38,6 +50,9 @@ export function AllDayCell({ events, onTapEvent }: Props) {
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              minWidth: 0,
+              maxWidth: '100%',
+              display: 'block',
             }}
             title={ev.title}
           >

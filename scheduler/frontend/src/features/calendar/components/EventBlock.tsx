@@ -6,14 +6,16 @@ interface Props {
   event: Event;
   onTap: (event: Event) => void;
   onLongPress: (event: Event) => void;
+  onDropAt?: (event: Event, x: number, y: number) => void;
   dimmed?: boolean;
   highlighted?: boolean;
 }
 
-export function EventBlock({ event, onTap, onLongPress, dimmed, highlighted }: Props) {
+export function EventBlock({ event, onTap, onLongPress, onDropAt, dimmed, highlighted }: Props) {
   const handlers = useLongPress({
     onLongPress: () => onLongPress(event),
     onClick: () => onTap(event),
+    onDragEnd: onDropAt ? (x, y) => onDropAt(event, x, y) : undefined,
   });
 
   const color = event.override?.color_override ?? event.color ?? '#6b7280';
@@ -34,7 +36,7 @@ export function EventBlock({ event, onTap, onLongPress, dimmed, highlighted }: P
       onPointerMove={handlers.onPointerMove}
       onPointerUp={(e) => {
         stop(e);
-        handlers.onPointerUp();
+        handlers.onPointerUp(e);
       }}
       onPointerCancel={handlers.onPointerCancel}
       onClick={stop}

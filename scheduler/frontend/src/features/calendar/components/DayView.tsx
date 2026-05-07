@@ -13,6 +13,8 @@ interface Props {
   onTapEvent: (e: Event) => void;
   onLongPressEvent: (e: Event) => void;
   onDropTo: (day: Date) => void;
+  onDropEventAt: (e: Event, x: number, y: number) => void;
+  onAddAllDay: (day: Date) => void;
 }
 
 export function DayView({
@@ -23,6 +25,8 @@ export function DayView({
   onTapEvent,
   onLongPressEvent,
   onDropTo,
+  onDropEventAt,
+  onAddAllDay,
 }: Props) {
   const dayKey = formatJst(anchor, 'yyyy-MM-dd');
   const { timedEvents, allDayEvents } = useMemo(() => {
@@ -53,10 +57,13 @@ export function DayView({
     </div>
   );
 
-  const allDayRow =
-    allDayEvents.length > 0 ? (
-      <AllDayCell events={allDayEvents} onTapEvent={onTapEvent} />
-    ) : undefined;
+  const allDayRow = (
+    <AllDayCell
+      events={allDayEvents}
+      onTapEvent={onTapEvent}
+      onLongPressEmpty={() => onAddAllDay(anchor)}
+    />
+  );
 
   return (
     <TimeGridShell header={header} columnCount={1} allDayRow={allDayRow}>
@@ -69,6 +76,7 @@ export function DayView({
         onTapEvent={onTapEvent}
         onLongPressEvent={onLongPressEvent}
         onDropTo={onDropTo}
+        onDropEventAt={onDropEventAt}
       />
     </TimeGridShell>
   );

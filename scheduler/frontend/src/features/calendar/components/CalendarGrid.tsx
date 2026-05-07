@@ -24,7 +24,7 @@ import { useSync } from '../../sync/useSync';
 
 type ModalState =
   | { kind: 'none' }
-  | { kind: 'create'; defaultStart: Date; defaultEnd?: Date }
+  | { kind: 'create'; defaultStart: Date; defaultEnd?: Date; defaultAllDay?: boolean }
   | { kind: 'detail'; event: Event }
   | { kind: 'edit'; event: Event };
 
@@ -88,7 +88,6 @@ export function CalendarGrid() {
       return;
     }
     startMove(ev);
-    toast.info('移動先の日付をタップしてください（ESC で取消）');
   };
 
   const handleDropTo = async (day: Date) => {
@@ -105,6 +104,33 @@ export function CalendarGrid() {
     }
   };
 
+  const handleDropEventAt = async (ev: Event, x: number, y: number) => {
+    if (ev.source !== 'manual' && ev.source !== 'google') {
+      toast.error('インポートされた予定は移動できません（読み取り専用）。');
+      cancelMove();
+      return;
+    }
+    const el = document.elementFromPoint(x, y);
+    const target = el?.closest('[data-day]') as HTMLElement | null;
+    const dayStr = target?.dataset.day;
+    if (!dayStr) {
+      cancelMove();
+      return;
+    }
+    if (formatJst(ev.start_at, 'yyyy-MM-dd') === dayStr) {
+      cancelMove();
+      return;
+    }
+    const [yy, mm, dd] = dayStr.split('-').map(Number);
+    const day = new Date(yy!, mm! - 1, dd!);
+    const { start, end } = shiftEventToDay(ev, day);
+    try {
+      await update.mutateAsync({ id: ev.id, start, end });
+    } finally {
+      cancelMove();
+    }
+  };
+
   const handleAddAtDay = (day: Date) => {
     const start = new Date(day);
     start.setHours(9, 0, 0, 0);
@@ -115,6 +141,12 @@ export function CalendarGrid() {
     setModal({ kind: 'create', defaultStart: start, defaultEnd: end });
   };
 
+  const handleAddAllDay = (day: Date) => {
+    const start = new Date(day);
+    start.setHours(0, 0, 0, 0);
+    setModal({ kind: 'create', defaultStart: start, defaultAllDay: true });
+  };
+
   const viewProps = {
     anchor,
     events,
@@ -122,6 +154,7 @@ export function CalendarGrid() {
     onTapEvent: (ev: Event) => setModal({ kind: 'detail', event: ev }),
     onLongPressEvent: handleStartMove,
     onDropTo: handleDropTo,
+    onDropEventAt: handleDropEventAt,
   };
 
   return (
@@ -171,12 +204,11 @@ export function CalendarGrid() {
       )}
 
       <div className="calendar-area">
-        {isLoading && <div style={{ color: 'var(--c-text-muted)', fontSize: 'var(--fs-sm)' }}>読み込み中…</div>}
         {isError && <div style={{ color: 'var(--c-danger)', fontSize: 'var(--fs-sm)' }}>取得に失敗しました</div>}
 
         {view === 'month' && <MonthView {...viewProps} onAdd={handleAddAtDay} />}
-        {view === 'week' && <WeekView {...viewProps} onAdd={handleAddAtTime} />}
-        {view === 'day' && <DayView {...viewProps} onAdd={handleAddAtTime} />}
+        {view === 'week' && <WeekView {...viewProps} onAdd={handleAddAtTime} onAddAllDay={handleAddAllDay} />}
+        {view === 'day' && <DayView {...viewProps} onAdd={handleAddAtTime} onAddAllDay={handleAddAllDay} />}
       </div>
 
       <EventFormModal
@@ -188,6 +220,7 @@ export function CalendarGrid() {
                 kind: 'create',
                 defaultStart: modal.defaultStart,
                 defaultEnd: modal.defaultEnd,
+                defaultAllDay: modal.defaultAllDay,
               }
             : { kind: 'create', defaultStart: new Date() }
         }

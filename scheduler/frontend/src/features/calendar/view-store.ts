@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
 export type ViewKind = 'month' | 'week' | 'day';
 
@@ -7,7 +8,15 @@ interface ViewState {
   setView: (v: ViewKind) => void;
 }
 
-export const useViewStore = create<ViewState>((set) => ({
-  view: 'month',
-  setView: (view) => set({ view }),
-}));
+export const useViewStore = create<ViewState>()(
+  persist(
+    (set) => ({
+      view: 'month',
+      setView: (view) => set({ view }),
+    }),
+    {
+      name: 'scheduler-calendar-view',
+      storage: createJSONStorage(() => localStorage),
+    },
+  ),
+);

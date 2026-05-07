@@ -13,6 +13,7 @@ interface Props {
   onTapEvent: (e: Event) => void;
   onLongPressEvent: (e: Event) => void;
   onDropTo: (day: Date) => void;
+  onDropEventAt: (e: Event, x: number, y: number) => void;
 }
 
 const HOURS_PER_DAY = 24;
@@ -34,6 +35,7 @@ export function TimeGridColumn({
   onTapEvent,
   onLongPressEvent,
   onDropTo,
+  onDropEventAt,
 }: Props) {
   const inMoveMode = moveTarget !== null;
   const colRef = useRef<HTMLDivElement | null>(null);
@@ -129,6 +131,7 @@ export function TimeGridColumn({
   return (
     <div
       ref={colRef}
+      data-day={formatJst(day, 'yyyy-MM-dd')}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -183,6 +186,7 @@ export function TimeGridColumn({
           laneCount={laneCount}
           onTap={onTapEvent}
           onLongPress={onLongPressEvent}
+          onDropAt={onDropEventAt}
           dimmed={moveTarget !== null && moveTarget.id !== event.id}
           highlighted={moveTarget?.id === event.id}
         />
